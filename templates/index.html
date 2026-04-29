@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>简历筛选系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary: #4f46e5;
+      --primary-light: #818cf8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-500: #6b7280;
+      --gray-700: #374151;
+      --gray-900: #111827;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: var(--gray-100); color: var(--gray-900); min-height: 100vh; }
+
+    .header { background: white; border-bottom: 1px solid var(--gray-200); padding: 20px 32px; }
+    .header-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+    .header h1 { font-size: 24px; font-weight: 600; }
+
+    .date-picker-wrap { display: flex; align-items: center; gap: 12px; }
+    .date-picker-wrap label { font-size: 14px; color: var(--gray-700); font-weight: 500; }
+    .date-picker {
+      padding: 8px 14px; border: 1px solid var(--gray-300); border-radius: 8px;
+      font-size: 14px; cursor: pointer;
+    }
+    .date-picker:focus { outline: none; border-color: var(--primary); }
+    .reload-btn {
+      padding: 8px 16px; background: var(--primary); color: white; border: none;
+      border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer;
+    }
+    .reload-btn:hover { background: #4338ca; }
+    .reload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .header-info { font-size: 13px; color: var(--gray-500); margin-top: 8px; }
+
+    .main { display: flex; gap: 24px; padding: 24px 32px; max-width: 1600px; margin: 0 auto; }
+
+    .sidebar { width: 320px; flex-shrink: 0; }
+    .filter-panel { background: white; border-radius: 12px; padding: 24px; position: sticky; top: 24px; }
+    .filter-section { margin-bottom: 20px; }
+    .filter-section:last-child { margin-bottom: 0; }
+    .filter-label { font-size: 14px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; display: block; }
+    .filter-hint { font-size: 12px; color: var(--gray-500); margin-bottom: 6px; }
+    .filter-input, .filter-select {
+      width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300);
+      border-radius: 8px; font-size: 14px;
+    }
+    .filter-input:focus, .filter-select:focus { outline: none; border-color: var(--primary); }
+    .range-row { display: flex; align-items: center; gap: 8px; }
+    .range-row .filter-input { width: 80px; text-align: center; }
+    .range-row span { color: var(--gray-500); font-size: 13px; }
+
+    .btn { width: 100%; padding: 12px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: var(--primary); color: white; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-secondary { background: var(--gray-100); color: var(--gray-700); margin-top: 8px; }
+    .btn-secondary:hover { background: var(--gray-200); }
+
+    .stats { background: var(--gray-50); border-radius: 8px; padding: 16px; margin-top: 24px; }
+    .stats-row { display: flex; justify-content: space-between; font-size: 14px; padding: 4px 0; }
+    .stats-row .value { font-weight: 600; }
+    .stats-row.pass .value { color: var(--success); }
+    .stats-row.fail .value { color: var(--danger); }
+
+    .content { flex: 1; min-width: 0; }
+    .content-header { display: flex; align-items: center; margin-bottom: 20px; gap: 12px; }
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .tab { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; background: white; color: var(--gray-500); }
+    .tab.active { background: var(--primary); color: white; }
+    .tab:hover:not(.active) { background: var(--gray-100); }
+    .tab-count { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 6px; }
+    .tab.active .tab-count { background: rgba(255,255,255,0.2); }
+    .tab:not(.active) .tab-count { background: var(--gray-200); }
+    .export-btn {
+      margin-left: auto; padding: 8px 16px; background: #10b981; color: white;
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .export-btn:hover { background: #059669; }
+
+    .resume-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .resume-card { background: white; border-radius: 12px; padding: 20px; cursor: pointer; transition: all .2s; border: 2px solid transparent; }
+    .resume-card:hover { border-color: var(--primary-light); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 600; flex-shrink: 0; }
+    .avatar.male { background: #dbeafe; color: #2563eb; }
+    .avatar.female { background: #fce7f3; color: #db2777; }
+    .avatar.unknown { background: var(--gray-200); color: var(--gray-500); }
+    .card-info { flex: 1; min-width: 0; }
+    .card-name { font-size: 16px; font-weight: 600; }
+    .card-meta { font-size: 12px; color: var(--gray-500); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .tag { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .tag.major { background: #e0e7ff; color: #4338ca; }
+    .tag.skill { background: #d1fae5; color: #059669; }
+    .tag.match { background: #fef3c7; color: #d97706; }
+    .tag.info { background: var(--gray-100); color: var(--gray-700); }
+    .tag.warn { background: #fef3c7; color: #d97706; }
+    .card-actions { display: flex; gap: 8px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-100); flex-wrap: wrap; }
+    .card-btn { flex: 1; min-width: 60px; padding: 7px 10px; border: 1px solid var(--gray-200); border-radius: 6px; background: white; font-size: 13px; cursor: pointer; }
+    .card-btn:hover { background: var(--gray-50); }
+    .card-btn.approve { border-color: var(--success); color: var(--success); }
+    .card-btn.approve:hover { background: #ecfdf5; }
+    .card-btn.edit { border-color: var(--primary-light); color: var(--primary); }
+    .card-btn.edit:hover { background: #eef2ff; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--gray-500); }
+    .empty-icon { font-size: 64px; margin-bottom: 16px; }
+    .empty-title { font-size: 18px; font-weight: 600; color: var(--gray-700); margin-bottom: 8px; }
+
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; visibility: hidden; transition: all .2s; }
+    .modal-overlay.show { opacity: 1; visibility: visible; }
+    .modal { background: white; border-radius: 16px; width: 90%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column; transform: scale(0.95); transition: transform .2s; }
+    .modal-overlay.show .modal { transform: scale(1); }
+    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--gray-200); }
+    .modal-title { font-size: 18px; font-weight: 600; }
+    .modal-close { width: 36px; height: 36px; border: none; border-radius: 8px; background: var(--gray-100); font-size: 20px; cursor: pointer; }
+    .modal-close:hover { background: var(--gray-200); }
+    .modal-body { flex: 1; overflow: auto; padding: 24px; }
+    .edit-modal { max-width: 480px; }
+    .edit-form { display: flex; flex-direction: column; gap: 18px; }
+    .edit-field label { display: block; font-size: 14px; font-weight: 600; color: var(--gray-700); margin-bottom: 6px; }
+    .edit-field input, .edit-field select { width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; }
+    .edit-field .hint { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+    .edit-actions { display: flex; gap: 10px; }
+    .edit-actions button { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .btn-save { background: var(--primary); color: white; }
+    .btn-cancel { background: var(--gray-100); color: var(--gray-700); }
+    .preview-container { background: var(--gray-100); border-radius: 8px; min-height: 500px; }
+    .preview-container iframe { width: 100%; height: 70vh; border: none; border-radius: 8px; }
+
+    .loading-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
+    .loading-spinner { width: 48px; height: 48px; border: 4px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { margin-top: 16px; color: var(--gray-500); }
+
+    @media (max-width: 768px) {
+      .main { flex-direction: column; padding: 16px; }
+      .sidebar { width: 100%; }
+      .resume-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-row">
+      <h1>简历筛选系统</h1>
+      <div class="date-picker-wrap">
+        <label>查看日期</label>
+        <input type="date" class="date-picker" id="datePicker">
+        <button class="reload-btn" id="reloadBtn">🔄 重新解析</button>
+      </div>
+    </div>
+    <div class="header-info" id="headerInfo">加载中...</div>
+  </div>
+
+  <div class="main">
+    <aside class="sidebar">
+      <div class="filter-panel">
+        <div class="filter-section">
+          <label class="filter-label">目标专业</label>
+          <div class="filter-hint">多个用逗号分隔,支持模糊匹配</div>
+          <input type="text" class="filter-input" id="majorInput" placeholder="例如:计算机,软件工程">
+        </div>
+        <div class="filter-section">
+          <label class="filter-label">关键技能</label>
+          <div class="filter-hint">多个用逗号分隔,支持模糊匹配</div>
+          <input type="text" class="filter-input" id="skillInput" placeholder="例如:Python, Java, Vue">
+        </div>
+        <div class="filter-section">
+          <label class="filter-label">性别筛选</label>
+          <select class="filter-select" id="genderSelect">
+            <option value="all">不限制</option>
+            <option value="male">仅男性</option>
+            <option value="female">仅女性</option>
+            <option value="unknown">未识别性别</option>
+          </select>
+        </div>
+        <div class="filter-section">
+          <label class="filter-label">年龄范围</label>
+          <div class="range-row">
+            <input type="number" class="filter-input" id="ageMin" placeholder="最小" min="16" max="70">
+            <span>～</span>
+            <input type="number" class="filter-input" id="ageMax" placeholder="最大" min="16" max="70">
+            <span>岁</span>
+          </div>
+        </div>
+        <div class="filter-section">
+          <label class="filter-label">学历要求</label>
+          <select class="filter-select" id="eduSelect">
+            <option value="all">不限制</option>
+            <option value="大专">大专及以上</option>
+            <option value="本科">本科及以上</option>
+            <option value="硕士">硕士及以上</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" id="filterBtn">开始筛选</button>
+        <button class="btn btn-secondary" id="resetBtn">重置筛选</button>
+
+        <div class="stats">
+          <div class="stats-row total"><span>已加载简历</span><span class="value" id="totalCount">0</span></div>
+          <div class="stats-row pass"><span>通过筛选</span><span class="value" id="passCount">0</span></div>
+          <div class="stats-row fail"><span>未通过筛选</span><span class="value" id="failCount">0</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <div class="content-header">
+        <div class="tabs">
+          <button class="tab active" data-tab="pass">通过列表<span class="tab-count" id="passTabCount">0</span></button>
+          <button class="tab" data-tab="fail">待复核列表<span class="tab-count" id="failTabCount">0</span></button>
+          <button class="tab" data-tab="rejected">回收站<span class="tab-count" id="rejectedTabCount">0</span></button>
+        </div>
+        <button class="export-btn" id="exportBtn">📥 导出通过名单</button>
+      </div>
+      <div class="resume-grid" id="resumeGrid"></div>
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">📄</div>
+        <div class="empty-title">暂无简历</div>
+        <div>请选择日期或检查文件夹</div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 预览弹窗 -->
+  <div class="modal-overlay" id="previewModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title" id="modalTitle">简历预览</div>
+        <button class="modal-close" id="modalClose">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="preview-container" id="previewContainer"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑弹窗 -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal edit-modal">
+      <div class="modal-header">
+        <div class="modal-title">编辑候选人信息</div>
+        <button class="modal-close" id="editModalClose">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="edit-form">
+          <div class="edit-field"><label>姓名</label><input type="text" id="editName"></div>
+          <div class="edit-field">
+            <label>性别</label>
+            <select id="editGender">
+              <option value="male">男</option><option value="female">女</option><option value="unknown">未知</option>
+            </select>
+          </div>
+          <div class="edit-field">
+            <label>专业</label><input type="text" id="editMajor">
+            <div class="hint">多个用逗号分隔</div>
+          </div>
+          <div class="edit-field"><label>年龄(岁)</label><input type="number" id="editAge" min="16" max="70"></div>
+          <div class="edit-field">
+            <label>学历</label>
+            <select id="editEdu">
+              <option value="">未识别</option>
+              <option value="大专">大专</option>
+              <option value="本科">本科</option>
+              <option value="硕士">硕士</option>
+              <option value="博士">博士</option>
+            </select>
+          </div>
+          <div class="edit-actions">
+            <button class="btn-cancel" id="editCancelBtn">取消</button>
+            <button class="btn-save" id="editSaveBtn">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loadingText">加载中...</div>
+  </div>
+
+  <script>
+    // ============================================================
+    // 状态
+    // ============================================================
+    const state = {
+      currentDate: null,   // 'YYYY-MM-DD'
+      resumes: [],         // 从后端拉的原始数据
+      scored: [],          // 加上筛选匹配信息后的数据
+      currentTab: 'pass',
+      editingId: null,
+    };
+
+    // DOM
+    const $ = id => document.getElementById(id);
+    const datePicker = $('datePicker'),
+          reloadBtn  = $('reloadBtn'),
+          headerInfo = $('headerInfo'),
+          majorInput = $('majorInput'),
+          skillInput = $('skillInput'),
+          genderSelect = $('genderSelect'),
+          ageMin = $('ageMin'),
+          ageMax = $('ageMax'),
+          eduSelect = $('eduSelect'),
+          filterBtn = $('filterBtn'),
+          resetBtn = $('resetBtn'),
+          resumeGrid = $('resumeGrid'),
+          emptyState = $('emptyState'),
+          previewModal = $('previewModal'),
+          editModal = $('editModal'),
+          loadingOverlay = $('loadingOverlay'),
+          loadingText = $('loadingText');
+
+    function showLoading(t) { loadingText.textContent = t || '加载中...'; loadingOverlay.style.display = 'flex'; }
+    function hideLoading()   { loadingOverlay.style.display = 'none'; }
+
+    // ============================================================
+    // 取值辅助:手动编辑优先
+    // ============================================================
+    const rName   = r => r.manual_name      ?? r.auto_name ?? r.file_name.replace(/\.pdf$/i, '');
+    const rGender = r => r.manual_gender    ?? r.auto_gender ?? 'unknown';
+    const rAge    = r => r.manual_age       ?? r.auto_age;
+    const rEdu    = r => r.manual_education ?? r.auto_education;
+    const rMajors = r => (r.manual_majors && r.manual_majors.length) ? r.manual_majors : (r.auto_majors || []);
+
+    // ============================================================
+    // 加载数据
+    // ============================================================
+    async function loadResumes(dateStr, forceParse = false) {
+      showLoading(forceParse ? '正在解析该日期的简历文件夹...' : '加载中...');
+      try {
+        const url = forceParse
+          ? `/api/parse?date=${dateStr}`
+          : `/api/resumes?date=${dateStr}`;
+        const res = await fetch(url, { method: forceParse ? 'POST' : 'GET' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        state.currentDate = data.date;
+        state.resumes = data.items;
+        headerInfo.textContent =
+          `当前日期: ${data.date}   共 ${data.count} 份简历`
+          + (typeof data.new_parsed === 'number' ? `   (本次新解析 ${data.new_parsed} 份)` : '');
+        applyFilter();
+      } catch (e) {
+        console.error(e);
+        headerInfo.textContent = '加载失败: ' + e.message;
+        alert('加载失败: ' + e.message);
+      } finally {
+        hideLoading();
+      }
+    }
+
+    // ============================================================
+    // 筛选(纯前端,筛选条件独立)
+    // ============================================================
+    function applyFilter() {
+      const majors = majorInput.value.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+      const skills = skillInput.value.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+      const gender = genderSelect.value;
+      const eduReq = eduSelect.value;
+      const aMin = ageMin.value !== '' ? parseInt(ageMin.value) : null;
+      const aMax = ageMax.value !== '' ? parseInt(ageMax.value) : null;
+      const eduOrder = { '大专': 1, '本科': 2, '硕士': 3, '博士': 4 };
+
+      state.scored = state.resumes.map(r => {
+        const textLower = (r.text || '').toLowerCase();
+        const matchedMajors = majors.filter(m => textLower.includes(m.toLowerCase()));
+        const matchedSkills = skills.filter(s => textLower.includes(s.toLowerCase()));
+        const majorScore = matchedMajors.length;
+        const skillScore = matchedSkills.length;
+
+        let passed = true, autoRejected = false;
+        if (majors.length > 0 && majorScore === 0) passed = false;
+        if (skills.length > 0 && skillScore === 0) passed = false;
+
+        const g = rGender(r);
+        if (gender !== 'all' && g !== 'unknown' && g !== gender) { passed = false; autoRejected = true; }
+        else if (gender !== 'all' && g !== gender) passed = false;
+
+        const age = rAge(r);
+        if (aMin !== null) { if (age === null || age < aMin) passed = false; }
+        if (aMax !== null) { if (age === null || age > aMax) passed = false; }
+
+        if (eduReq !== 'all') {
+          const edu = rEdu(r);
+          if (edu !== null && edu !== undefined && eduOrder[edu] < eduOrder[eduReq]) passed = false;
+        }
+
+        return { ...r, matchedMajors, matchedSkills, majorScore, skillScore, totalScore: majorScore + skillScore, passed, autoRejected };
+      });
+
+      state.scored.sort((a, b) => b.totalScore - a.totalScore);
+      renderGrid();
+      updateStats();
+    }
+
+    // ============================================================
+    // Tab 数据
+    // ============================================================
+    function getItemsForTab(tab) {
+      if (tab === 'pass') {
+        return state.scored.filter(r => r.action !== 'rejected' && (r.action === 'approved' || r.passed));
+      }
+      if (tab === 'fail') {
+        return state.scored.filter(r => !r.passed && !r.autoRejected && !r.action);
+      }
+      // rejected
+      return state.scored.filter(r => r.autoRejected || r.action === 'rejected');
+    }
+
+    function renderGrid() {
+      const items = getItemsForTab(state.currentTab);
+      if (items.length === 0) {
+        resumeGrid.innerHTML = '';
+        emptyState.style.display = 'block';
+        const msg = {
+          pass: { title: '暂无通过的简历', sub: '请调整筛选条件' },
+          fail: { title: '暂无待复核的简历', sub: '所有简历都已分类' },
+          rejected: { title: '回收站为空', sub: '性别不符或人工否决的简历会显示在这里' },
+        };
+        emptyState.querySelector('.empty-title').textContent = msg[state.currentTab].title;
+        emptyState.querySelector('div:last-child').textContent = msg[state.currentTab].sub;
+        return;
+      }
+      emptyState.style.display = 'none';
+      resumeGrid.innerHTML = items.map(r => {
+        const name = rName(r);
+        const g = rGender(r);
+        const age = rAge(r);
+        const edu = rEdu(r);
+        const majors = rMajors(r);
+        const avatarClass = g === 'male' ? 'male' : g === 'female' ? 'female' : 'unknown';
+        const genderIcon = g === 'male' ? '♂' : g === 'female' ? '♀' : '?';
+        const genderLabel = g === 'male' ? '男' : g === 'female' ? '女' : '未识别';
+        const hasManual = r.manual_name || r.manual_gender || r.manual_age || r.manual_education || r.manual_majors;
+
+        return `
+          <div class="resume-card" onclick="showPreview(${r.id})">
+            <div class="card-header">
+              <div class="avatar ${avatarClass}">${genderIcon}</div>
+              <div class="card-info">
+                <div class="card-name">${escapeHtml(name)}${hasManual ? ' <span style="font-size:11px;color:#4f46e5;">已编辑</span>' : ''}</div>
+                <div class="card-meta">${escapeHtml(r.file_name)}</div>
+              </div>
+            </div>
+            <div class="card-tags">
+              <span class="tag info">性别:${genderLabel}</span>
+              ${age !== null && age !== undefined ? `<span class="tag info">年龄:${age}岁</span>` : ''}
+              ${edu ? `<span class="tag info">学历:${edu}</span>` : ''}
+            </div>
+            ${majors.length ? `<div class="card-tags"><span class="tag major">📚 ${escapeHtml(majors.join('、'))}</span></div>` : ''}
+            ${r.matchedMajors && r.matchedMajors.length ? `
+              <div class="card-tags">
+                <span class="tag match">专业匹配 ${r.majorScore}项</span>
+                ${r.matchedMajors.slice(0,3).map(m => `<span class="tag major">${escapeHtml(m)}</span>`).join('')}
+              </div>` : ''}
+            ${r.matchedSkills && r.matchedSkills.length ? `
+              <div class="card-tags">
+                <span class="tag match">技能匹配 ${r.skillScore}项</span>
+                ${r.matchedSkills.slice(0,4).map(s => `<span class="tag skill">${escapeHtml(s)}</span>`).join('')}
+              </div>` : ''}
+            ${g === 'unknown' ? `<div class="card-tags"><span class="tag warn">⚠️ 性别未识别,可手动编辑</span></div>` : ''}
+            <div class="card-actions" onclick="event.stopPropagation()">
+              <button class="card-btn" onclick="showPreview(${r.id})">查看</button>
+              <button class="card-btn edit" onclick="openEditModal(${r.id})">✏️ 编辑</button>
+              ${state.currentTab === 'pass' ? `<button class="card-btn reject" onclick="setAction(${r.id},'rejected')">✗ 否决</button>` : ''}
+              ${state.currentTab === 'fail' ? `<button class="card-btn approve" onclick="setAction(${r.id},'approved')">✓ 通过</button>` : ''}
+              ${state.currentTab === 'rejected' ? (r.autoRejected && r.action !== 'rejected'
+                ? `<span class="tag warn" style="font-size:12px;">⚠️ 性别不符</span>`
+                : `<button class="card-btn approve" onclick="setAction(${r.id},null)">↩ 恢复</button>`) : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateStats() {
+      const total = state.scored.length;
+      const passCnt = getItemsForTab('pass').length;
+      const failCnt = getItemsForTab('fail').length;
+      const rejCnt  = getItemsForTab('rejected').length;
+      $('totalCount').textContent = total;
+      $('passCount').textContent  = passCnt;
+      $('failCount').textContent  = failCnt;
+      $('passTabCount').textContent     = passCnt;
+      $('failTabCount').textContent     = failCnt;
+      $('rejectedTabCount').textContent = rejCnt;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // ============================================================
+    // 操作:通过/否决/恢复
+    // ============================================================
+    async function setAction(id, action) {
+      try {
+        const res = await fetch(`/api/resume/${id}/action`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ action })
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        // 更新本地
+        const r = state.resumes.find(x => x.id === id);
+        if (r) r.action = action;
+        applyFilter();
+      } catch (e) {
+        alert('操作失败: ' + e.message);
+      }
+    }
+    window.setAction = setAction;
+
+    // ============================================================
+    // 编辑弹窗
+    // ============================================================
+    window.openEditModal = function(id) {
+      const r = state.resumes.find(x => x.id === id);
+      if (!r) return;
+      state.editingId = id;
+      $('editName').value   = rName(r);
+      $('editGender').value = rGender(r);
+      $('editMajor').value  = (rMajors(r) || []).join('，');
+      $('editAge').value    = rAge(r) ?? '';
+      $('editEdu').value    = rEdu(r) || '';
+      editModal.classList.add('show');
+    };
+
+    function closeEditModal() { editModal.classList.remove('show'); state.editingId = null; }
+
+    async function saveEdit() {
+      const id = state.editingId;
+      if (!id) return;
+      const body = {
+        name:      $('editName').value.trim(),
+        gender:    $('editGender').value,
+        age:       $('editAge').value !== '' ? parseInt($('editAge').value) : null,
+        education: $('editEdu').value || null,
+        majors:    $('editMajor').value.trim(),
+      };
+      try {
+        const res = await fetch(`/api/resume/${id}/edit`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        // 更新本地
+        const r = state.resumes.find(x => x.id === id);
+        if (r) {
+          r.manual_name = body.name || null;
+          r.manual_gender = body.gender;
+          r.manual_age = body.age;
+          r.manual_education = body.education;
+          r.manual_majors = body.majors ? body.majors.split(/[,，]/).map(x => x.trim()).filter(Boolean) : null;
+        }
+        closeEditModal();
+        applyFilter();
+      } catch (e) {
+        alert('保存失败: ' + e.message);
+      }
+    }
+
+    $('editSaveBtn').addEventListener('click', saveEdit);
+    $('editCancelBtn').addEventListener('click', closeEditModal);
+    $('editModalClose').addEventListener('click', closeEditModal);
+    editModal.addEventListener('click', e => { if (e.target === editModal) closeEditModal(); });
+
+    // ============================================================
+    // 预览(iframe 加载后端返回的 PDF)
+    // ============================================================
+    window.showPreview = function(id) {
+      const r = state.resumes.find(x => x.id === id);
+      if (!r) return;
+      $('modalTitle').textContent = rName(r) + ' — 简历预览';
+      $('previewContainer').innerHTML = `<iframe src="/api/preview/${id}"></iframe>`;
+      previewModal.classList.add('show');
+    };
+    $('modalClose').addEventListener('click', () => previewModal.classList.remove('show'));
+    previewModal.addEventListener('click', e => { if (e.target === previewModal) previewModal.classList.remove('show'); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { previewModal.classList.remove('show'); closeEditModal(); }
+    });
+
+    // ============================================================
+    // 导出 CSV
+    // ============================================================
+    $('exportBtn').addEventListener('click', () => {
+      const passed = getItemsForTab('pass');
+      if (!passed.length) { alert('暂无通过的简历可导出'); return; }
+      const gt = g => g === 'male' ? '男' : g === 'female' ? '女' : '未识别';
+      const rows = [['序号','姓名','文件名','性别','年龄','学历','专业','匹配专业','匹配技能','综合得分']];
+      passed.forEach((r, i) => {
+        rows.push([
+          i + 1, rName(r), r.file_name, gt(rGender(r)),
+          rAge(r) ?? '未识别', rEdu(r) ?? '未识别',
+          rMajors(r).join('、'),
+          (r.matchedMajors || []).join('、'),
+          (r.matchedSkills || []).join('、'),
+          r.totalScore || 0,
+        ]);
+      });
+      const BOM = '\uFEFF';
+      const csv = rows.map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+      const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8-sig' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `简历筛选通过名单_${state.currentDate}.csv`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    });
+
+    // ============================================================
+    // 事件绑定
+    // ============================================================
+    filterBtn.addEventListener('click', applyFilter);
+    resetBtn.addEventListener('click', () => {
+      majorInput.value = ''; skillInput.value = ''; genderSelect.value = 'all';
+      ageMin.value = ''; ageMax.value = ''; eduSelect.value = 'all';
+      applyFilter();
+    });
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        state.currentTab = tab.dataset.tab;
+        renderGrid();
+      });
+    });
+
+    datePicker.addEventListener('change', () => {
+      if (datePicker.value) loadResumes(datePicker.value, false);
+    });
+    reloadBtn.addEventListener('click', () => {
+      if (datePicker.value) loadResumes(datePicker.value, true);
+    });
+
+    // ============================================================
+    // 初始化:默认今天
+    // ============================================================
+    (function init() {
+      const today = new Date();
+      const ymd = today.getFullYear() + '-' +
+                  String(today.getMonth() + 1).padStart(2, '0') + '-' +
+                  String(today.getDate()).padStart(2, '0');
+      datePicker.value = ymd;
+      loadResumes(ymd, false);
+    })();
+  </script>
+</body>
+</html>
